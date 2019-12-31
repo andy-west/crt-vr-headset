@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>VR Test</title>
+    <style>
+        html, body {
+            width:  100%;
+            height: 100%;
+            margin: 0;
+        }
+        canvas {
+            width:  50%;
+            height: 100%;
+            float: left;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="leftCanvas" style="background-color: #000080;"></canvas>
+    <canvas id="rightCanvas" style="background-color: #800000;"></canvas>
+
+    <script src="js/three.js"></script>
+    <script>
+        function main() {
+            const fieldOfView = 75;
+            const aspectRatio = 2;
+            const nearDistance = 0.1;
+            const farDistance = 1000;
+
+            const pupillaryDistance = 0.061;
+
+            const leftCanvas = document.getElementById("leftCanvas");
+            const rightCanvas = document.getElementById("rightCanvas");
+
+            const scene = new THREE.Scene();
+
+            const textureLoader = new THREE.CubeTextureLoader();
+
+            const skybox = textureLoader.load([
+                "images/skybox-right.png",
+                "images/skybox-left.png",
+                "images/skybox-top.png",
+                "images/skybox-bottom.png",
+                "images/skybox-front.png",
+                "images/skybox-back.png"
+            ]);
+
+            scene.background = skybox;
+
+            const leftCamera = setUpCamera(-pupillaryDistance / 2, true);
+            const rightCamera = setUpCamera(pupillaryDistance / 2, false);
+
+            function setUpCamera(xPosition, doFlip) {
+                var camera = new THREE.PerspectiveCamera(fieldOfView, aspectRatio, nearDistance, farDistance);
+                camera.rotation.z = doFlip ? THREE.Math.degToRad(180) : 0;
+                camera.position.x = xPosition;
+
+                return camera;
+            }
+
+            const cameras = new THREE.Group();
+            cameras.add(leftCamera);
+            cameras.add(rightCamera);
+            cameras.position.z = 4;
+
+            scene.add(cameras);
+
+            const leftRenderer = new THREE.WebGLRenderer({ canvas: leftCanvas });
+            leftRenderer.autoClearColor = false;
+            const rightRenderer = new THREE.WebGLRenderer({ canvas: rightCanvas });
+            rightRenderer.autoClearColor = false;
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.75);
+            directionalLight.position.set(-1, 2, 4);
+            scene.add(directionalLight);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.25);
+            scene.add(ambientLight);
+
+            var material = new THREE.MeshPhongMaterial({ color: 0xA0A0A0 });
+
+            function getRandomInt(min, max) {
+                min = Math.ceil(min);
+                max = Math.floor(max);
+                return Math.floor(Math.random() * (max - min + 1)) + min;
+            }
+
+            var cubes = [];
+
+            for (var i = 0; i < 200; i++) {
+                var geometry = new THREE.BoxGeometry(1, 1, 1);
+                var cube = new THREE.Mesh(geometry, material);
+                cube.position.set(getRandomInt(-50, 50), getRandomInt(-10, 50), getRandomInt(-50, 50));
+                scene.add(cube);
+                cubes.push(cube);
+            }
+
+            window.addEventListener('resize', handleWindowResize, false);
+
+            function handleWindowResize() {
+                resize(leftCanvas, leftCamera, leftRenderer);
+                resize(rightCanvas, rightCamera, rightRenderer);
+            }
+
+            function resize(canvas, camera, renderer) {
+                var canvasStyle = getComputedStyle(canvas);
+                var canvasWidth = parseInt(canvasStyle.width);
+                var canvasHeight = parseInt(canvasStyle.height);
+
+                camera.aspect = canvasWidth / canvasHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(canvasWidth, canvasHeight, false);
+            }
+
+            const animate = function () {
+                requestAnimationFrame(animate);
+                update();
+                render();
+            };
+
+            function update() {
+                for (var i = 0; i < cubes.length; i++) {
+                    cubes[i].rotation.x += 0.01;
+                    cubes[i].rotation.y += 0.01;
+                    cubes[i].position.z += 0.1;
+                    
+                    if (cubes[i].position.z > 50) {
+                        cubes[i].position.z = -50
+                    }
+                }
+
+                fetch("http://127.0.0.1:5000/trackingdata")
+                    .then(function(response) {
+                        if (response.status == 200) {
+                            response.text().then(function(text) {
+                                var c = text.split(",");
+                                var x = THREE.Math.degToRad(parseFloat(c[0]));
+                                var y = THREE.Math.degToRad(parseFloat(c[1]));
+                                var z = THREE.Math.degToRad(parseFloat(c[2]));
+                                var w = THREE.Math.degToRad(parseFloat(c[3]));
+
+                                var quaternion = new THREE.Quaternion(y, x, z, w).normalize();
+                                cameras.quaternion.slerp(quaternion, 0.15);
+                            });
+                        }
+                    });
+            }
+
+            function render() {
+                leftRenderer.render(scene, leftCamera);
+                rightRenderer.render(scene, rightCamera);
+            }
+
+            handleWindowResize();
+            animate();
+        }
+
+        window.onload = main;
+    </script>
+</body>
+</html>

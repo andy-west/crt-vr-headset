@@ -1,0 +1,5 @@
+;; Geometry is in the format WIDTHxHEIGHT+0-1
+;; WIDTH = Screen width * 2
+;; HEIGHT = Screen height + 77
+
+(if (contains (window_name) "Chromium") (geometry "1440x557+0-1"))

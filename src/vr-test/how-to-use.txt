@@ -1,0 +1,5 @@
+1) Enable I2C on the Pi.
+2) Copy the .devilspie folder into /home/pi.
+3) Copy the contents of this folder into /home/pi/vr-test.
+4) Install modified minimu9-ahrs (bypass "No gyro found" error).
+5) Execute run.sh.
